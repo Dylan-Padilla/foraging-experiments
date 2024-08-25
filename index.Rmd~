@@ -1,0 +1,450 @@
+---
+title: ""
+output:
+  html_document:
+  css: style.css
+  
+---
+
+
+<p align = "justify">
+
+<font size = "4"> Data analysis for: </font>
+
+<font size = "5"> Fitness consequences of the foraging mode paradigm </font>
+
+[Dylan Padilla](https://dylanpadilla.netlify.app/), School of Life Sciences, Arizona State University, Tempe, AZ 85287, United States.
+
+![](imgs/asu_logo.png)
+
+
+```{r, include = FALSE}
+
+knitr::opts_chunk$set(fig.align = "center", fig.width = 7, fig.height = 7, dpi = 300, comment = ">")
+
+```
+
+
+<font size = "4"> Library </font>
+
+
+```{r}
+
+library(AICcmodavg)
+library(magick)
+library(knitr)
+library(MuMIn)
+library(png)
+library(raster)
+library(scales)
+library(xtable)
+
+```
+
+
+<font size = "4"> Loading data </font>
+
+
+```{r, include = FALSE}
+
+##data <- data.frame(initial_mass = rep(NA, 100), final_mass = rep(NA, 100), strain = rep(NA, 100), env = rep(NA, 100), adult = rep(NA, 100))
+##head(data)
+
+##write.table(data, file = "data.csv", sep = ",", row.names = FALSE)
+
+```
+
+
+```{r}
+
+data <- read.csv("data.csv")
+head(data)
+data$growth <-  data$final_mass - data$initial_mass
+names(data)
+
+data <- data[ , c(3, 4, 7)]
+data <- data[!is.na(data$growth), ]
+data <- data[data$growth > 0, ]
+
+table(data$strain, data$env)
+
+data$strain[data$strain == "s"] <- "Sitter"
+data$strain[data$strain == "r"] <- "Rover"
+data$env[data$env == "p"] <- "Patchy"
+data$env[data$env == "u"] <- "Lumpy"
+
+data <- data[data$growth < 0.002, ] # Removing abnormal data
+
+
+## Movement data
+
+vid.dat <- read.csv('./OneDrive-2024-08-19/Results/Results_by_ind.csv', row.names = 1, sep = ';')
+str(vid.dat)
+vid.dat <- vid.dat[c(2, 4, 1, 3, 5:92), ]
+vid.dat[1:8, 1:5]
+
+mov.dat <- read.csv('movement.csv')
+str(mov.dat)
+head(mov.dat)
+
+s <- mov.dat[mov.dat$strain == "s", ]
+r <- mov.dat[mov.dat$strain == "r", ]
+dim(s)
+dim(r)
+
+ord.dat <- data.frame()
+
+for(i in 1:46){
+    idx <- s[i, ]
+    idx2 <- r[i, ]
+    obj <- rbind(idx, idx2)
+    ord.dat <- rbind(ord.dat, obj)
+}
+
+ord.dat[1:8, ]
+vid.dat[1:8, 1:5]
+dim(ord.dat)
+
+vid.dat$mass <- ord.dat$mass
+vid.dat$strain <- ord.dat$strain
+vid.dat$env <- ord.dat$env
+
+names(vid.dat)
+
+str(vid.dat)
+data.frame(vid.dat[1:12, 10:11])
+
+```
+
+
+<font size = "4"> Modeling distance traveled and growth rate</font>
+
+
+```{r}
+
+##vid.dat <- vid.dat[vid.dat$Prop_time_moving > 0.7, ] ## extreme value
+vid.dat$env[vid.dat$env == 'u'] <- 'Lumpy'
+vid.dat$env[vid.dat$env == 'p'] <- 'Patchy'
+vid.dat$strain[vid.dat$strain == 'r'] <- 'Rover'
+vid.dat$strain[vid.dat$strain == 's'] <- 'Sitter'
+str(vid.dat)
+
+
+## Proportion of time while moving
+
+mod1 <- lm(Prop_time_moving ~ mass*strain + env, data = vid.dat)
+summary(mod1)
+
+mod2 <- lm(Prop_time_moving ~ strain*env, data = vid.dat)
+summary(mod2)
+anova(mod2)
+
+mod3 <- lm(Prop_time_moving ~ strain + env, data = vid.dat)
+summary(mod3)
+anova(mod3)
+
+## Model selection procedure based on AIC criterion
+
+output.models <- model.sel(mod1, mod2, mod3)
+
+sel.table <- round(as.data.frame(output.models)[7:11], 3)
+names(sel.table)[1] <- "K"
+sel.table$Model <- rownames(sel.table)
+sel.table <- sel.table[ , c(6, 1, 2, 3, 4, 5)]
+sel.table
+
+
+## Model diagnosis
+
+layout(matrix(c(0, 0, 0, 0,
+                1, 1, 2, 2,
+                1, 1, 2, 2,
+                0, 0, 0, 0), nrow = 4, ncol = 4, byrow = TRUE))
+
+
+
+## Checking homogeneity of variance
+
+
+plot(fitted(mod3), resid(mod3), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", type = 'n', las = 1)
+grid()
+
+par(new = TRUE)
+plot(fitted(mod3), resid(mod3), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", las = 1)
+
+abline(h = 0, col = "darkorange", lwd = 2)
+
+
+## Checking normality
+
+qqnorm(resid(mod3), col = "darkgrey", type = 'n', las = 1)
+grid()
+
+par(new = TRUE)
+qqnorm(resid(mod3), col = "darkgrey", las = 1)
+qqline(resid(mod3), col = "dodgerblue", lwd = 2)
+
+
+
+## Distance traveled
+
+mod4 <- lm(Traveled_Dist_Moving ~ mass*strain + env, data = vid.dat)
+summary(mod4)
+
+mod5 <- lm(Traveled_Dist_Moving ~ strain*env, data = vid.dat)
+summary(mod5)
+anova(mod5)
+
+mod6 <- lm(Traveled_Dist_Moving ~ strain + env, data = vid.dat)
+summary(mod6)
+anova(mod6)
+
+
+## Model selection procedure based on AIC criterion
+
+output.models <- model.sel(mod4, mod5, mod6)
+
+sel.table <- round(as.data.frame(output.models)[7:11], 3)
+names(sel.table)[1] <- "K"
+sel.table$Model <- rownames(sel.table)
+sel.table <- sel.table[ , c(6, 1, 2, 3, 4, 5)]
+sel.table
+
+
+## Model diagnosis
+
+
+layout(matrix(c(0, 0, 0, 0,
+                1, 1, 2, 2,
+                1, 1, 2, 2,
+                0, 0, 0, 0), nrow = 4, ncol = 4, byrow = TRUE))
+
+
+
+## Checking homogeneity of variance
+
+
+plot(fitted(mod6), resid(mod6), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", type = 'n', las = 1)
+grid()
+
+par(new = TRUE)
+plot(fitted(mod6), resid(mod6), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", las = 1)
+
+abline(h = 0, col = "darkorange", lwd = 2)
+
+
+## Checking normality
+
+qqnorm(resid(mod6), col = "darkgrey", type = 'n', las = 1)
+grid()
+
+par(new = TRUE)
+qqnorm(resid(mod6), col = "darkgrey", las = 1)
+qqline(resid(mod6), col = "dodgerblue", lwd = 2)
+
+
+
+
+## Growth rate
+
+interaction.model <- lm(growth ~ strain*env, data = data)
+summary(interaction.model)
+anova(interaction.model)
+
+## Model diagnosis
+
+
+layout(matrix(c(0, 0, 0, 0,
+                1, 1, 2, 2,
+                1, 1, 2, 2,
+                0, 0, 0, 0), nrow = 4, ncol = 4, byrow = TRUE))
+
+
+
+## Checking homogeneity of variance
+
+
+plot(fitted(interaction.model), resid(interaction.model), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", type = 'n', las = 1)
+grid()
+
+par(new = TRUE)
+plot(fitted(interaction.model), resid(interaction.model), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", las = 1)
+
+abline(h = 0, col = "darkorange", lwd = 2)
+
+
+## Checking normality
+
+qqnorm(resid(interaction.model), col = "darkgrey", type = 'n', las = 1)
+grid()
+
+par(new = TRUE)
+qqnorm(resid(interaction.model), col = "darkgrey", las = 1)
+qqline(resid(interaction.model), col = "dodgerblue", lwd = 2)
+
+
+```
+
+```{r}
+
+xtable(formatC(summary(interaction.model)$coefficients, format = "e", digits = 2), caption = 'Caption here...', digits = 3)
+
+```
+
+<font size = "4"> Plotting results of the model </font>
+
+
+```{r}
+
+## Barplot
+
+## png('figure2.png', height = 7, width = 7, units = 'in', res = 350)
+
+## Let's calculate the average value for each condition and each specie with the 'tapply' function
+
+mean.gr <- tapply(vid.dat$Traveled_Dist_Moving, list(vid.dat$strain, vid.dat$env), mean)
+as.matrix(mean.gr)
+
+## Plot boundaries
+
+lim <- 2*max(mean.gr)
+
+## A function to add arrows on the chart
+
+error.bar <- function(x, y, upper, lower = upper, length = 0.1,...){
+  arrows(x, y+upper, x, y-lower, angle = 90, code = 3, length = length, ...)
+}
+ 
+## Then I calculate the standard deviation for each specie and condition :
+
+std.gr <- tapply(vid.dat$Traveled_Dist_Moving, list(vid.dat$strain, vid.dat$env), sd)
+std.gr
+stdev <- as.matrix(std.gr*1.96/46)
+
+## I am ready to add the error bar on the plot using my "error bar" function!
+
+cols <- c("black" , "gray")
+
+par(mar = c(5, 6, 1, 1), mgp = c(3.8, 1, 0))
+
+ze_barplot <- barplot(NA, beside = TRUE, legend.text = T, col = alpha(cols, 0.2), ylim = c(0, lim), ylab = 'Traveled distance while moving (mm)', xlab = "Environment", las = 1)
+grid()
+
+par(new = TRUE)
+ze_barplot <- barplot(mean.gr, beside = TRUE, legend.text = T, col = alpha(cols, 0.5) , ylim = c(0, lim), ylab = 'Traveled distance while moving (mm)', xlab = "Environment", las = 1)
+error.bar(ze_barplot, mean.gr, stdev, col = "black")
+box()
+
+## dev.off()
+
+```
+
+
+```{r}
+
+## Barplot
+
+## png('figure2.png', height = 7, width = 7, units = 'in', res = 350)
+
+## Let's calculate the average value for each condition and each specie with the 'tapply' function
+
+mean.gr <- tapply(data$growth, list(data$strain, data$env), mean)
+as.matrix(mean.gr)
+
+## Plot boundaries
+
+lim <- 2*max(mean.gr)
+
+## A function to add arrows on the chart
+
+error.bar <- function(x, y, upper, lower = upper, length = 0.1,...){
+  arrows(x, y+upper, x, y-lower, angle = 90, code = 3, length = length, ...)
+}
+ 
+## Then I calculate the standard deviation for each specie and condition :
+
+std.gr <- tapply(data$growth, list(data$strain, data$env), sd)
+std.gr
+stdev <- as.matrix(std.gr*1.96/46)
+
+## I am ready to add the error bar on the plot using my "error bar" function!
+
+cols <- c("black" , "gray")
+
+par(mar = c(5, 6, 1, 1), mgp = c(3.8, 1, 0))
+
+ze_barplot <- barplot(NA, beside = TRUE, legend.text = T, col = alpha(cols, 0.2), ylim = c(0, lim), ylab = expression(Growth~(Delta*gr%*%day^-1)), xlab = "Environment", las = 1)
+grid()
+
+par(new = TRUE)
+ze_barplot <- barplot(mean.gr, beside = TRUE, legend.text = T, col = alpha(cols, 0.5) , ylim = c(0, lim), ylab = expression(Growth~(Delta*gr%*%day^-1)), xlab = "Environment", las = 1)
+error.bar(ze_barplot, mean.gr, stdev, col = "black")
+box()
+
+## dev.off()
+
+```
+
+<br>
+<font size='3'>Gif for Figure 1</font>
+<br>
+
+```{r}
+
+
+for(i in 1:23){
+    png(paste('figure', i, '.png', sep = ''), width = 7, height = 7, units = 'in', res = 350)
+    layout(matrix(c(1, 1, 2, 2,
+                    1, 1, 2, 2,
+                    3, 3, 4, 4,
+                    3, 3, 4, 4), nrow = 4, ncol = 4, byrow = TRUE))
+    
+    RP <- readPNG(source = paste('imgs/RP-path/figure', i, '.png', sep = ''))
+    #RU <- png(RU-path[i])
+    #SP <- png(SP-path[i])
+    ##SU <- png(SU-path[i])
+    
+    par(mar = c(1, 1, 1, 0))
+    plot(NA, ylim = c(0, 1), xlim = c(0, 1), type = 'n', axes = FALSE, xlab = '', ylab = '')
+    par(new = TRUE)
+    rasterImage(RP, 0, 0, 1, 1)
+    mtext('A', at = 0, line = -0.5)
+
+    par(mar = c(1, 1, 1, 0))
+    plot(NA, ylim = c(0, 1), xlim = c(0, 1), type = 'n', axes = FALSE, xlab = '', ylab = '')
+    par(new = TRUE)
+    rasterImage(RU, 0, 0, 1, 1)
+    mtext('B', at = 0, line = -0.5)
+
+    par(mar = c(1, 1, 1, 0))
+    plot(NA, ylim = c(0, 1), xlim = c(0, 1), type = 'n', axes = FALSE, xlab = '', ylab = '')
+    par(new = TRUE)
+    rasterImage(SP, 0, 0, 1, 1)
+    mtext('C', at = 0, line = -0.5)
+
+    par(mar = c(1, 1, 1, 0))
+    plot(NA, ylim = c(0, 1), xlim = c(0, 1), type = 'n', axes = FALSE, xlab = '', ylab = '')
+    par(new = TRUE)
+    rasterImage(SU, 0, 0, 1, 1)
+    mtext('D', at = 0, line = -0.5)
+    dev.off()
+}
+
+
+
+
+
+imgs <- list.files(path = "./imgs/RP-path", full.names = TRUE)
+img_list <- lapply(imgs, image_read)
+
+## join the images together
+img_joined <- image_join(img_list)
+
+## animate at 2 frames per second
+img_animated <- image_animate(img_joined, fps = 2)
+
+image_write(img_animated, "test.gif")
+knitr::include_graphics('test.gif')
+
+
+```
