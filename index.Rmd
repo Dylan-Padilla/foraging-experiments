@@ -11,7 +11,7 @@ output:
 
 <font size = "4"> Data analysis for: </font>
 
-<font size = "5"> The Foraging-mode Paradigm: A Historical Overview Including a Reevaluation of its Predictions</font>
+<font size = "5"> Foraging actively can be advantageous in heterogeneous environments</font>
 
 [Dylan Padilla](https://dylanpadilla.netlify.app/), School of Life Sciences, Arizona State University, Tempe, AZ 85287, United States.
 
@@ -36,6 +36,7 @@ library(icons)
 library(magick)
 library(knitr)
 library(MuMIn)
+library(nlme)
 library(png)
 library(raster)
 library(scales)
@@ -77,7 +78,7 @@ table(data$strain, data$env)
 data$strain[data$strain == "s"] <- "Sitter"
 data$strain[data$strain == "r"] <- "Rover"
 data$env[data$env == "p"] <- "Patchy"
-data$env[data$env == "u"] <- "Lumpy"
+data$env[data$env == "u"] <- "Uniform"
 
 data <- data[data$growth < 0.002, ] # Removing abnormal data
 
@@ -137,7 +138,7 @@ data.frame(vid.dat[1:12, 10:11])
 ```{r}
 
 ##vid.dat <- vid.dat[vid.dat$Prop_time_moving > 0.7, ] ## extreme value
-vid.dat$env[vid.dat$env == 'u'] <- 'Lumpy'
+vid.dat$env[vid.dat$env == 'u'] <- 'Uniform'
 vid.dat$env[vid.dat$env == 'p'] <- 'Patchy'
 vid.dat$strain[vid.dat$strain == 'r'] <- 'Rover'
 vid.dat$strain[vid.dat$strain == 's'] <- 'Sitter'
@@ -145,7 +146,6 @@ str(vid.dat)
 
 
 ## Proportion of area covered
-
 
 mod <- lm(prop_area_visited ~ mass*strain*env, data = vid.dat)
 summary(mod)
@@ -155,23 +155,27 @@ summary(mod1)
 
 mod2 <- lm(prop_area_visited ~ strain*env, data = vid.dat)
 summary(mod2)
-anova(mod2)
 
 mod3 <- lm(prop_area_visited ~ strain + env, data = vid.dat)
 summary(mod3)
-anova(mod3)
 
-## Model selection procedure based on AIC criterion
+AICc(mod, mod1, mod2, mod3)
 
-output.models <- model.sel(mod1, mod2, mod3)
 
-sel.table <- round(as.data.frame(output.models)[7:11], 3)
-names(sel.table)[1] <- "K"
-sel.table$Model <- rownames(sel.table)
-sel.table <- sel.table[ , c(6, 1, 2, 3, 4, 5)]
-sel.table
+vf1 <- varIdent(form = ~ 1 | strain)
+vf2 <- varIdent(form = ~ 1 | env)
+vf3 <- varIdent(form = ~ 1 | strain*env)
 
-xtable(sel.table, digits = 3, caption = 'Caption here')
+
+mod4 <- gls(prop_area_visited ~ strain*env, data = vid.dat, weights = vf1)
+mod5 <- gls(prop_area_visited ~ strain*env, data = vid.dat, weights = vf2)
+mod6 <- gls(prop_area_visited ~ strain*env, data = vid.dat, weights = vf3)
+mod7 <- gls(prop_area_visited ~ strain*env, data = vid.dat)
+
+AICc(mod4, mod5, mod6, mod7)
+
+AIC(mod3, mod7)
+
 
 ## Model diagnosis
 
@@ -204,34 +208,27 @@ qqnorm(resid(mod3), col = "darkgrey", las = 1)
 qqline(resid(mod3), col = "dodgerblue", lwd = 2)
 
 
+```
+
+
+```{r}
+
 
 ## Distance traveled
 
-mod4 <- lm(Traveled_Dist_Moving ~ mass*strain + env, data = vid.dat)
-summary(mod4)
+mod8 <- lm(Traveled_Dist_Moving ~ mass*strain + env, data = vid.dat)
+summary(mod8)
 
-mod5 <- lm(Traveled_Dist_Moving ~ strain*env, data = vid.dat)
-summary(mod5)
-anova(mod5)
+mod9 <- lm(Traveled_Dist_Moving ~ strain*env, data = vid.dat)
+summary(mod9)
 
-mod6 <- lm(Traveled_Dist_Moving ~ strain + env, data = vid.dat)
-summary(mod6)
-anova(mod6)
+mod10 <- lm(Traveled_Dist_Moving ~ strain + env, data = vid.dat)
+summary(mod10)
 
-mod7 <- lm(Traveled_Dist_Moving ~ strain, data = vid.dat)
-summary(mod7)
-anova(mod7)
+mod11 <- lm(Traveled_Dist_Moving ~ strain, data = vid.dat)
+summary(mod11)
 
-
-## Model selection procedure based on AIC criterion
-
-output.models <- model.sel(mod4, mod5, mod6, mod7)
-
-sel.table <- round(as.data.frame(output.models)[7:11], 3)
-names(sel.table)[1] <- "K"
-sel.table$Model <- rownames(sel.table)
-sel.table <- sel.table[ , c(6, 1, 2, 3, 4, 5)]
-sel.table
+AICc(mod8, mod9, mod10, mod11)
 
 
 ## Model diagnosis
@@ -247,82 +244,60 @@ layout(matrix(c(0, 0, 0, 0,
 ## Checking homogeneity of variance
 
 
-plot(fitted(mod6), resid(mod6), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", type = 'n', las = 1)
+plot(fitted(mod8), resid(mod8), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", type = 'n', las = 1)
 grid()
 
 par(new = TRUE)
-plot(fitted(mod6), resid(mod6), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", las = 1)
+plot(fitted(mod8), resid(mod8), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", las = 1)
 
 abline(h = 0, col = "darkorange", lwd = 2)
 
 
 ## Checking normality
 
-qqnorm(resid(mod6), col = "darkgrey", type = 'n', las = 1)
+qqnorm(resid(mod8), col = "darkgrey", type = 'n', las = 1)
 grid()
 
 par(new = TRUE)
-qqnorm(resid(mod6), col = "darkgrey", las = 1)
-qqline(resid(mod6), col = "dodgerblue", lwd = 2)
+qqnorm(resid(mod8), col = "darkgrey", las = 1)
+qqline(resid(mod8), col = "dodgerblue", lwd = 2)
+
+```
+
+<b>
+<br>
+<font size = "4"> Modeling heterogeneity </font>
+<br>
+</b>
 
 
-
+```{r}
 
 ## Growth rate
 
-int.model <- lm(growth ~ strain*env, data = data)
-summary(int.model)
-anova(int.model)
 
-noint.model <- lm(growth ~ strain + env, data = data)
-summary(noint.model)
-anova(noint.model)
+## png('heter.png', height = 7, width = 7, units = 'in', res = 350)
 
-## Model selection procedure based on AIC criterion
+## Model selection
 
-output.models <- model.sel(int.model, noint.model)
+mod12 <- gls(growth ~ strain*env, data = data, weights = vf1)
+mod13 <- gls(growth ~ strain*env, data = data, weights = vf2)
+mod14 <- gls(growth ~ strain*env, data = data, weights = vf3)
+mod15 <- gls(growth ~ strain*env, data = data)
 
-sel.table <- round(as.data.frame(output.models)[5:9], 3)
-names(sel.table)[1] <- "K"
-sel.table$Model <- rownames(sel.table)
-sel.table <- sel.table[ , c(6, 1, 2, 3, 4, 5)]
-sel.table
+AICc(mod12, mod13, mod14, mod15)
 
-xtable(sel.table, digits = 3, caption = 'Caption here')
+mod16 <- gls(growth ~ strain + env, data = data, weights = vf3)
+mod17 <- gls(growth ~ strain, data = data, weights = vf3)
+mod18 <- gls(growth ~ env, data = data, weights = vf3)
 
-## Model diagnosis
+AICc(mod16, mod17, mod18)
 
-
-layout(matrix(c(0, 0, 0, 0,
-                1, 1, 2, 2,
-                1, 1, 2, 2,
-                0, 0, 0, 0), nrow = 4, ncol = 4, byrow = TRUE))
-
-
-
-## Checking homogeneity of variance
-
-
-plot(fitted(noint.model), resid(noint.model), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", type = 'n', las = 1)
-grid()
-
-par(new = TRUE)
-plot(fitted(noint.model), resid(noint.model), col = "grey", pch = 20, xlab = "Fitted", ylab = "Residual", main = "Fitted versus Residuals", las = 1)
-
-abline(h = 0, col = "darkorange", lwd = 2)
-
-
-## Checking normality
-
-qqnorm(resid(noint.model), col = "darkgrey", type = 'n', las = 1)
-grid()
-
-par(new = TRUE)
-qqnorm(resid(noint.model), col = "darkgrey", las = 1)
-qqline(resid(noint.model), col = "dodgerblue", lwd = 2)
-
-
+summary(mod18)
+     
 ```
+
+
 
 ```{r}
 
@@ -333,111 +308,13 @@ xtable(data.frame(anova((mod3))), caption = 'Caption here...', digits = 3)
 
 ## Growth
 
-xtable(formatC(as.matrix(anova(noint.model)), digits = 3, format = 'e'), caption = 'Caption here...', digits = 3)
+xtable(formatC(summary(mod18)$tTable, digits = 3, format = 'e'), caption = 'Caption here...', digits = 3)
 
 ```
 
 <b>
 <br>
-<font size = "4"> Plotting results of the model </font>
-<br>
-</b>
-
-
-```{r}
-
-## Barplot
-
-## png('figure2.png', height = 7, width = 7, units = 'in', res = 350)
-
-## Let's calculate the average value for each condition and each specie with the 'tapply' function
-
-mean.area <- tapply(vid.dat$prop_area_visited, list(vid.dat$strain, vid.dat$env), mean)
-as.matrix(mean.area)
-
-## Plot boundaries
-
-lim <- 2*max(mean.area)
-
-## A function to add arrows on the chart
-
-error.bar <- function(x, y, upper, lower = upper, length = 0.1,...){
-  arrows(x, y+upper, x, y-lower, angle = 90, code = 3, length = length, ...)
-}
- 
-## Then I calculate the standard deviation for each specie and condition :
-
-std.area <- tapply(vid.dat$prop_area_visited, list(vid.dat$strain, vid.dat$env), sd)
-std.area
-stdev.area <- as.matrix(std.area*1.96/46)
-
-## I am ready to add the error bar on the plot using my "error bar" function!
-
-cols <- c("black" , "gray")
-
-par(mar = c(5, 6, 1, 1), mgp = c(3.8, 1, 0))
-
-ze_barplot <- barplot(NA, beside = TRUE, legend.text = T, col = alpha(cols, 0.2), ylim = c(0, lim), ylab = expression(paste('Proportion of area visited')~(mm^2)), xlab = "Environment", las = 1)
-grid()
-
-par(new = TRUE)
-ze_barplot <- barplot(mean.area, beside = TRUE, legend.text = T, col = alpha(cols, 0.5) , ylim = c(0, lim), ylab = expression(paste('Proportion of area visited')~(mm^2)), xlab = "Environment", las = 1)
-error.bar(ze_barplot, mean.area, stdev.area, col = "black")
-box()
-
-## dev.off()
-
-```
-
-
-```{r}
-
-## Barplot
-
-## png('figure2.png', height = 7, width = 7, units = 'in', res = 350)
-
-## Let's calculate the average value for each condition and each specie with the 'tapply' function
-
-mean.gr <- tapply(data$growth, list(data$strain, data$env), mean)
-as.matrix(mean.gr)
-
-## Plot boundaries
-
-lim <- 2*max(mean.gr)
-
-## A function to add arrows on the chart
-
-error.bar <- function(x, y, upper, lower = upper, length = 0.1,...){
-  arrows(x, y+upper, x, y-lower, angle = 90, code = 3, length = length, ...)
-}
- 
-## Then I calculate the standard deviation for each specie and condition :
-
-std.gr <- tapply(data$growth, list(data$strain, data$env), sd)
-std.gr
-stdev <- as.matrix(std.gr*1.96/46)
-
-## I am ready to add the error bar on the plot using my "error bar" function!
-
-cols <- c("black" , "gray")
-
-par(mar = c(5, 6, 1, 1), mgp = c(3.8, 1, 0))
-
-ze_barplot <- barplot(NA, beside = TRUE, legend.text = T, col = alpha(cols, 0.2), ylim = c(0, lim), ylab = expression(Growth~(Delta*gr%*%day^-1)), xlab = "Environment", las = 1)
-grid()
-
-par(new = TRUE)
-ze_barplot <- barplot(mean.gr, beside = TRUE, legend.text = T, col = alpha(cols, 0.5) , ylim = c(0, lim), ylab = expression(Growth~(Delta*gr%*%day^-1)), xlab = "Environment", las = 1)
-error.bar(ze_barplot, mean.gr, stdev, col = "black")
-box()
-
-## dev.off()
-
-```
-
-<b>
-<br>
-<font size='3'>Figure 1</font>
+<font size='3'>Figure 2</font>
 <br>
 </b>
 
@@ -497,62 +374,32 @@ for(i in 1:23){
 
 <b>
 <br>
-<font size='3'>Figure 2</font>
+<font size='3'>Figure 1</font>
 <br>
 </b>
 
 ```{r}
 
-##png('figure2.png', width = 7, height = 7, units = 'in', res = 350)
+
+summary(mod3)
+
+rover.patchy <- coef(mod3)[1]
+sitter.patchy <- coef(mod3)[1] + coef(mod3)[2]
+rover.uniform <- coef(mod3)[1] + coef(mod3)[3]
+sitter.uniform <- sitter.patchy + coef(mod3)[3]
+
+rover.patchy
+sitter.patchy
+rover.uniform
+sitter.uniform
+
+tapply(vid.dat$prop_area_visited, list(vid.dat$strain, vid.dat$env), mean)
+
+sd <- tapply(vid.dat$prop_area_visited, list(vid.dat$strain, vid.dat$env), sd)
+sd
 
 
-layout(matrix(c(0, 1, 1, 0,
-                0, 1, 1, 0,
-                0, 2, 2, 0,
-                0, 2, 2, 0), nrow = 4, ncol = 4, byrow = TRUE))
-
-
-par(mar = c(5, 6, 1, 1), mgp = c(3.8, 1, 0))
-
-lim <- 2*max(mean.area)
-
-ze_barplot <- barplot(NA, beside = TRUE, legend.text = T, col = alpha(cols, 0.2), ylim = c(0, lim), ylab = expression(paste('Proportion of area visited')~(mm^2)), xlab = "Environment", las = 1)
-grid()
-
-par(new = TRUE)
-ze_barplot <- barplot(mean.area, beside = TRUE, legend.text = T, col = alpha(cols, 0.5) , ylim = c(0, lim), ylab = expression(paste('Proportion of area visited')~(mm^2)), xlab = "Environment", las = 1)
-error.bar(ze_barplot, mean.area, stdev.area, col = "black")
-box()
-mtext('A', at = -0.45, line = -0.5)
-
-
-par(mar = c(5, 6, 1, 1), mgp = c(3.8, 1, 0))
-
-lim <- 2*max(mean.gr)
-
-ze_barplot <- barplot(NA, beside = TRUE, legend.text = T, col = alpha(cols, 0.2), ylim = c(0, lim), ylab = expression(Growth~(Delta*gr%*%day^-1)), xlab = "Environment", las = 1)
-grid()
-
-par(new = TRUE)
-ze_barplot <- barplot(mean.gr, beside = TRUE, legend.text = T, col = alpha(cols, 0.5) , ylim = c(0, lim), ylab = expression(Growth~(Delta*gr%*%day^-1)), xlab = "Environment", las = 1)
-error.bar(ze_barplot, mean.gr, stdev, col = "black")
-box()
-mtext('B', at = -0.45, line = -0.5)
-
-##dev.off()
-
-```
-
-<br>
-<b>
-<font size='3'>Violin plots</font>
-</b>
-<br>
-
-
-```{r}
-
-##png("figure2-revised.png", height = 7, width = 7, units = "in", res = 360)
+##png("figure1-revised.png", height = 7, width = 7, units = "in", res = 360)
 
 layout(matrix(c(0, 1, 1, 0,
                 0, 1, 1, 0,
@@ -563,42 +410,54 @@ layout(matrix(c(0, 1, 1, 0,
 
 par(mgp = c(2, 1, 0))
 
-vioplot(prop_area_visited ~ strain + env, data = vid.dat, border = NA, method = "jitter", side = "right", ylab = expression(paste("Proportion of area visited")~(mm^2)), xlab = "Environment", col = "white", las = 1, xaxt = 'n', ylim = c(0, 0.45))
+vioplot(prop_area_visited ~ strain + env, data = vid.dat, border = NA, method = "jitter", side = "right", ylab = expression(paste("Proportion of area covered")~(mm^2)), xlab = "Environment", col = "white", las = 1, xaxt = 'n', ylim = c(0, 0.45), lineCol = 'white', rectCol = 'white')
+axis(1, at = c(1.5, 3.5), labels = c('Patchy', 'Uniform'), cex = 0.8)
 
 grid(nx = NULL, ny = NULL, col = alpha("lightgray", 0.5), lwd = 1, lty = 2)
 
-par(new = TRUE)
-
-vioplot(prop_area_visited ~ strain + env, data = vid.dat, border = NA, method = "jitter", side = "right", ylab = "", xlab = "", col = c(alpha("purple", 0.2), alpha("orange", 0.2)), las = 1, xaxt = 'n', ylim = c(0, 0.45))
-axis(1, at = c(1.5, 3.5), labels = c('Uniform', 'Patchy'), cex = 0.8)
-
-legend('topleft', legend = c('Rover', 'Sitter'), cex = 0.8, fill = c(alpha("purple", 0.2), alpha("orange", 0.2)), bty = 'n')
-
 stripchart(prop_area_visited ~ strain + env, data = vid.dat, vertical = TRUE, method = "jitter", add = TRUE, pch = 20, col = c(alpha("purple", 0.3), alpha("orange", 0.5)), cex = 1.3)
+
+points(x = c(1, 2, 3, 4), y = c(rover.patchy, sitter.patchy, rover.uniform, sitter.uniform), bg = 'black', pch = 21, cex = 1.1)
+
+segments(1, rover.patchy+sd[1, 1], 1, rover.patchy-sd[1, 1], lwd = 2.2)
+segments(2, sitter.patchy+sd[2, 1], 2, sitter.patchy-sd[2, 1], lwd = 2.2)
+segments(3, rover.uniform+sd[1, 2], 3, rover.uniform-sd[1, 2], lwd = 2.2)
+segments(4, sitter.uniform+sd[2, 2], 4, sitter.uniform-sd[2, 2], lwd = 2.2)
+
+legend('topleft', legend = c('Rover', 'Sitter'), cex = 1, pch = 16, col = c(alpha("purple", 0.5), alpha("orange", 0.5)), bty = 'n')
 
 mtext("A", side = 2, at = 0.5, line = 3, las = 1, font = 1)
 
 
 ## Basic boxplot
 
-par(mgp = c(3, 1, 0))
+par(mgp = c(2.8, 1, 0))
 
-vioplot(growth ~ strain + env, data = data, border = NA, method = "jitter", side = "right", ylab = expression(Growth~(Delta*gr%*%day^-1)), xlab = "Environment", col = "white", las = 1, xaxt = 'n')
+vioplot(growth ~ strain + env, data = data, border = NA, method = "jitter", side = "right", ylab = expression(Growth~(Delta*gr%*%day^-1)), xlab = "Environment", col = "white", las = 1, xaxt = 'n', lineCol = 'white', rectCol = 'white')
 
 grid(nx = NULL, ny = NULL, col = alpha("lightgray", 0.5), lwd = 1, lty = 2)
-
-par(new = TRUE)
-
-vioplot(growth ~ strain + env, data = data, border = NA, method = "jitter", side = "right", ylab = "", xlab = "", col = c(alpha("purple", 0.2), alpha("orange", 0.2)), las = 1, xaxt = 'n')
-axis(1, at = c(1.5, 3.5), labels = c('Uniform', 'Patchy'), cex = 0.8)
+axis(1, at = c(1.5, 3.5), labels = c('Patchy', 'Uniform'), cex = 0.8)
 
 stripchart(growth ~ strain + env, data = data, vertical = TRUE, method = "jitter", add = TRUE, pch = 20, col = c(alpha("purple", 0.3), alpha("orange", 0.5)), cex = 1.3)
 
-mtext("B", side = 2, at = 0.00096, line = 3, las = 1, font = 1)
+means <- tapply(data$growth, list(data$env, data$strain), mean)
+means
 
-legend('topright', legend = c('Rover', 'Sitter'), cex = 0.8, fill = c(alpha("purple", 0.2), alpha("orange", 0.2)), bty = 'n')
+points(x = c(1, 2, 3, 4), y = c(means[1, 1], means[1, 2], means[2, 1], means[2, 2]), bg = 'black', pch = 21, cex = 1.1)
+
+segments(1, means[1, 1]+0.6344861*(mod18$sigma), 1, means[1, 1]-0.6344861*(mod18$sigma), lwd = 2.2)
+segments(2, means[1, 2]+1.0000000*(mod18$sigma), 2, means[1, 2]-1.0000000*(mod18$sigma), lwd = 2.2)
+segments(3, means[2, 1]+1.3327763*(mod18$sigma), 3, means[2, 1]-1.3327763*(mod18$sigma), lwd = 2.2)
+segments(4, means[2, 2]+1.3269145*(mod18$sigma), 4, means[2, 2]-1.3269145*(mod18$sigma), lwd = 2.2)
+
+legend('topleft', legend = c('Rover', 'Sitter'), cex = 1, pch = 16, col = c(alpha("purple", 0.5), alpha("orange", 0.5)), bty = 'n')
+
+
+mtext("B", side = 2, at = 0.00096, line = 3, las = 1, font = 1)
 
 ##dev.off()
 
+
 ```
+
 
